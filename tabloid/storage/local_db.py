@@ -34,7 +34,7 @@ def init_db():
             );
             """
         )
-        # Stores a 'shapshot' of the schema layout
+        # Stores a 'snapshot' of the schema layout
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS snapshots (
@@ -75,7 +75,7 @@ def save_connection(name, host, port, user, dbname):
     with get_connection() as conn:
         conn.execute(
             """
-            INSERT OR REPLACE INTO connections (name, host, port, user, dbname) 
+            INSERT INTO connections (name, host, port, user, dbname) 
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(name, host, port, dbname)
             DO UPDATE SET user = excluded.user;

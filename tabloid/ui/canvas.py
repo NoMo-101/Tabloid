@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsSceneMouseEvent, QGraphicsView
 from PyQt6.QtGui import QBrush, QColor
-from PyQt6.QtCore import Qt
 
 class BlastRadius(QGraphicsRectItem):
     def __init__(self, table_name, neighbors, all_nodes):

@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 class DBConnector:
     def __init__(self, host, port, user, password, dbname):
-        self.host = host
+        self.host = host or "localhost"
         self.user = user
         self.password = password
         self.dbname = dbname
