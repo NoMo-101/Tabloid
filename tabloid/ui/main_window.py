@@ -14,29 +14,31 @@ class UIWindow(QMainWindow):
         self.scene = QGraphicsScene()
         self.view = SchemaCanvas(self.scene, self.reset_colors)
         self.setCentralWidget(self.view)
-        self.load_schema()
-        self.render_schema()
+        if self.load_schema():
+            self.render_schema()
         
     def load_schema(self):
-        dialog = ConnectionDialog()
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            credentials = dialog.get_credentials()
-        else:
-            self.close()
-            return
+        while True:
+            dialog = ConnectionDialog()
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                credentials = dialog.get_credentials()
+            else:
+                self.close()
+                return False
         
-        conn = DBConnector(
-            credentials["host"],
-            credentials["port"],
-            credentials["user"],
-            credentials["password"],
-            credentials["dbname"]
-        )
+            conn = DBConnector(
+                credentials["host"],
+                credentials["port"],
+                credentials["user"],
+                credentials["password"],
+                credentials["dbname"]
+            )
 
-        if not conn.connect():
-            QMessageBox.critical(self, "Connection Failed", "Could not connect to database. Check your credentials.")
-            self.close()
-            return
+            if not conn.connect():
+                QMessageBox.critical(self, "Connection Failed", "Could not connect to database. Check your credentials.")
+                continue # loop back and show the dialog again
+            
+            break # connection succeeded, exit the loop
         
         inspector = SchemaInspector(conn.connection)
         
@@ -49,6 +51,8 @@ class UIWindow(QMainWindow):
         self.foreign_keys = foreign_keys
         self.positions = positions
         self.graph = layout.build_graph()
+
+        return True
     
     def render_schema(self):
         all_nodes = []
