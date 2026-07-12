@@ -82,6 +82,14 @@ def save_connection(name, host, port, user, dbname):
             """,
             (name, host, port, user, dbname)
         )
+        cursor = conn.execute(
+            """
+            SELECT id FROM connections WHERE name = ? AND host = ? AND port = ? AND dbname = ?
+            """,
+            (name, host, port, dbname)
+        )
+        row = cursor.fetchone()
+        return row[0]
 
 def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, captured_at, keep_last=200):
     with get_connection() as conn:
