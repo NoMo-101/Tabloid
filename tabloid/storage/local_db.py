@@ -40,6 +40,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 connection_id INTEGER,
+                branch_name TEXT,
                 git_commit_hash TEXT,
                 schema_json TEXT,
                 captured_at TEXT
@@ -70,7 +71,6 @@ def load_layout(connection_id):
 
         return results
     
-
 def save_connection(name, host, port, user, dbname):
     with get_connection() as conn:
         conn.execute(
@@ -82,3 +82,38 @@ def save_connection(name, host, port, user, dbname):
             """,
             (name, host, port, user, dbname)
         )
+
+def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, captured_at, keep_last=200):
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO snapshots (connection_id, branch_name, git_commit_hash, schema_json, captured_at)
+            VALUES (?, ?, ?, ?, ?);
+            """,
+            (connection_id, branch_name, git_commit_hash, schema_json, captured_at)
+        )
+        conn.execute(
+            """
+            DELETE FROM snapshots
+            WHERE connection_id = ? AND branch_name = ?
+            AND id NOT IN (
+                SELECT id FROM snapshots
+                WHERE connection_id = ? AND branch_name = ?
+                ORDER BY captured_at DESC
+                LIMIT ?
+            );
+            """,
+            (connection_id, branch_name, connection_id, branch_name, keep_last)
+        )
+
+def get_latest_snapshot(connection_id, branch_name):
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT * FROM snapshots
+            WHERE connection_id = ? AND branch_name = ?
+            ORDER BY captured_at DESC
+            LIMIT 1;
+            """,
+            (connection_id, branch_name)
+        ).fetchone()
