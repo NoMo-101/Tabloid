@@ -3,6 +3,8 @@ from tabloid.db.inspector import SchemaInspector
 from tabloid.engine.layout import LayoutEngine
 from tabloid.storage.local_db import init_db, save_connection, save_layout, load_layout, save_snapshot, get_latest_snapshot
 from tabloid.git.watcher import GitWatcher
+from tabloid.engine.differ import diff_schemas
+# from tabloid_core.storage.snapshots import save_snapshot, get_latest_snapshot, init_snapshots_table
 import time
 import json
 
@@ -63,6 +65,7 @@ import json
 
 # Test for Module 5 (Part 2): Git Watcher; File name watcher.py
 init_db()
+# init_snapshots_table()
 
 conn = DBConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
 conn.connect()
@@ -82,6 +85,9 @@ def on_git_branch_change(old_branch, new_branch):
     live_schema = json.dumps({"tables": tables, "foreign_keys": foreign_keys})
 
     save_snapshot(connection_id, new_branch, "real_commit_hash_placeholder", live_schema, str(time.time()))
+    if previous_snapshot is not None:
+        diff = diff_schemas(previous_snapshot["schema_json"], live_schema)
+        print(f"Diff: {diff}")
     print(f"Saved new snapshot for {new_branch}")
 
 watcher = GitWatcher("/home/noah/projects/tabloid", on_git_branch_change)
@@ -89,7 +95,12 @@ print(f"Initial branch: {watcher.current_branch}")
 
 watcher.start()
 print("Watching for branch changes... switch branches in another terminal")
-time.sleep(30)
+time.sleep(120)
 watcher.stop()
 conn.disconnect()
 print("Done watching")
+
+# # inside on_git_branch_change, after fetching previous_snapshot:
+# if previous_snapshot is not None:
+#     diff = diff_schemas(previous_snapshot["schema_json"], live_schema)
+#     print(f"Diff: {diff}")

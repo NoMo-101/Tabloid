@@ -34,6 +34,7 @@ def init_db():
             );
             """
         )
+        # Delete/ Remove this later as this is in tabloid-core
         # Stores a 'snapshot' of the schema layout
         conn.execute(
             """
@@ -91,6 +92,7 @@ def save_connection(name, host, port, user, dbname):
         row = cursor.fetchone()
         return row[0]
 
+# Delete/ Remove this later as this is in tabloid-core
 def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, captured_at, keep_last=200):
     with get_connection() as conn:
         conn.execute(
@@ -114,6 +116,7 @@ def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, capt
             (connection_id, branch_name, connection_id, branch_name, keep_last)
         )
 
+# Delete/ Remove this later as this is in tabloid-core
 def get_latest_snapshot(connection_id, branch_name):
     with get_connection() as conn:
         return conn.execute(
