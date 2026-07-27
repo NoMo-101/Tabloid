@@ -1,5 +1,5 @@
-from tabloid.db.connector import DBConnector
-from tabloid.db.inspector import SchemaInspector
+from tabloid.db.postgres_connector import PostgresConnector
+from tabloid.db.postgres_inspector import PostgresSchemaInspector
 from tabloid.engine.layout import LayoutEngine
 from tabloid.storage.local_db import init_db, save_connection, save_layout, load_layout, save_snapshot, get_latest_snapshot
 from tabloid.git.watcher import GitWatcher
@@ -9,26 +9,26 @@ import time
 import json
 
 
-# Test for Module 1: DBConnector; Filename: connector.py
-# conn = DBConnector("localhost", 5433, "postgres", "tabloid123", "postgres")
+# Test for Module 1: PostgresConnector; Filename: connector.py
+# conn = PostgresConnector("localhost", 5433, "postgres", "tabloid123", "postgres")
 # result = conn.connect()
 # print(f"Connected: {result}")
 # conn.disconnect()
 
 
-# Test for Module 2: SchemaInspector; Filename: inspector.py
-# conn = DBConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
+# Test for Module 2: PostgresSchemaInspector; Filename: inspector.py
+# conn = PostgresConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
 # conn.connect()
-# inspector = SchemaInspector(conn.connection)
+# inspector = PostgresSchemaInspector(conn.connection)
 # print("Tables: ", inspector.fetch_tables())
 # print("Columns: ", inspector.fetch_columns())
 # print("Foreign Keys: ", inspector.fetch_foreign_keys())
 # conn.disconnect()
 
 # Test for Module 3: LayoutEngine; Filename: layout.py
-# conn = DBConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
+# conn = PostgresConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
 # conn.connect()
-# inspector = SchemaInspector(conn.connection)
+# inspector = PostgresSchemaInspector(conn.connection)
 
 # tables = inspector.fetch_tables()
 # foreign_keys = inspector.fetch_foreign_keys()
@@ -67,9 +67,9 @@ import json
 init_db()
 # init_snapshots_table()
 
-conn = DBConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
+conn = PostgresConnector("127.0.0.1", 5432, "tripuser", "trippassword123", "tripplanner")
 conn.connect()
-inspector = SchemaInspector(conn.connection)
+inspector = PostgresSchemaInspector(conn.connection)
 
 connection_id = save_connection("Travel App", "127.0.0.1", 5432, "tripuser", "tripplanner")
 print(f"connection_id: {connection_id}")
