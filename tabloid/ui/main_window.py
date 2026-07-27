@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QMainWindow, QGraphicsScene, QDialog, QMessageBox
-from tabloid.db.connector import DBConnector
-from tabloid.db.inspector import SchemaInspector
+from tabloid.db.postgres_connector import PostgresConnector
+from tabloid.db.postgres_inspector import PostgresSchemaInspector
 from tabloid.engine.layout import LayoutEngine
 from tabloid.ui.canvas import BlastRadius, SchemaCanvas
 from tabloid.ui.connection_dialog import ConnectionDialog
@@ -16,7 +16,7 @@ class UIWindow(QMainWindow):
         self.setCentralWidget(self.view)
         if self.load_schema():
             self.render_schema()
-        
+
     def load_schema(self):
         while True:
             dialog = ConnectionDialog()
@@ -25,8 +25,8 @@ class UIWindow(QMainWindow):
             else:
                 self.close()
                 return False
-        
-            conn = DBConnector(
+
+            connector = PostgresConnector(
                 credentials["host"],
                 credentials["port"],
                 credentials["user"],
@@ -34,26 +34,26 @@ class UIWindow(QMainWindow):
                 credentials["dbname"]
             )
 
-            if not conn.connect():
+            if not connector.connect():
                 QMessageBox.critical(self, "Connection Failed", "Could not connect to database. Check your credentials.")
-                continue # loop back and show the dialog again
-            
-            break # connection succeeded, exit the loop
-        
-        inspector = SchemaInspector(conn.connection)
-        
+                continue
+
+            break
+
+        inspector = PostgresSchemaInspector(connector)
+
         tables = inspector.fetch_tables()
         foreign_keys = inspector.fetch_foreign_keys()
         layout = LayoutEngine(tables, foreign_keys)
         positions = layout.compute_layout()
-        
+
         self.tables = tables
         self.foreign_keys = foreign_keys
         self.positions = positions
         self.graph = layout.build_graph()
 
         return True
-    
+
     def render_schema(self):
         all_nodes = []
         node_map = {}
@@ -71,15 +71,15 @@ class UIWindow(QMainWindow):
             if text:
                 text.setPos(x, y)
 
-        for from_table, from_column, to_table, to_column in self.foreign_keys:
-            from_pos = self.positions[from_table]
-            to_pos = self.positions[to_table]
+        for fk in self.foreign_keys:
+            from_pos = self.positions[fk.from_table]
+            to_pos = self.positions[fk.to_table]
             x1 = float(from_pos[0]) * 200 + 500
             y1 = float(from_pos[1]) * 200 + 400
             x2 = float(to_pos[0]) * 200 + 500
             y2 = float(to_pos[1]) * 200 + 400
             self.scene.addLine(x1, y1, x2, y2)
-    
+
     def reset_colors(self):
         for item in self.scene.items():
             if isinstance(item, BlastRadius):

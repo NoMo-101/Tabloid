@@ -7,8 +7,9 @@ class LayoutEngine:
     
     def build_graph(self):
         db_graph = nx.Graph()
-        db_graph.add_nodes_from(self.tables)
-        db_graph.add_edges_from([(fk[0], fk[2]) for fk in self.foreign_keys])
+        table_names = [table.table_name for table in self.tables]
+        db_graph.add_nodes_from(table_names)
+        db_graph.add_edges_from([(fk.from_table, fk.to_table) for fk in self.foreign_keys])
         return db_graph
     
     def compute_layout(self):

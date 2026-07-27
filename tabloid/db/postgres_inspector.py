@@ -1,43 +1,43 @@
-class SchemaInspector:
-    def __init__(self, connection):
+from tabloid.db.interfaces import DBConnectorInterface
+from tabloid.db.interfaces import SchemaInspectorInterface
+from tabloid.db.models import TableInfo, ColumnInfo, ForeignKeyInfo
+
+class PostgresSchemaInspector(SchemaInspectorInterface):
+    def __init__(self, connector: DBConnectorInterface):
         # Save the connection so we can run queries
-        self.connection = connection
+        self.connector = connector
 
     # Retrieve all tables in the 'public' schema.
-    def fetch_tables(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                AND table_type = 'BASE TABLE'
-                ORDER BY table_name;
-                """
-                )
-            table_results = cursor.fetchall()
-            return [row[0] for row in table_results]
+    def fetch_tables(self) -> list[TableInfo]:
+        sql = """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_type = 'BASE TABLE'
+            ORDER BY table_name;
+            """
+        rows = self.connector.execute_query(sql)
+        return [TableInfo(table_name = row[0]) for row in rows]
     
     # Retrieve column metadata for all tables in the 'public' schema
-    def fetch_columns(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
+    def fetch_columns(self) -> list[ColumnInfo]:
+            sql = """
                 SELECT table_name, column_name, data_type, is_nullable
                 FROM information_schema.columns
                 WHERE table_schema = 'public'
                 ORDER BY table_name, ordinal_position;
                 """
-            )
-            column_results = cursor.fetchall()
-            return column_results
+            rows = self.connector.execute_query(sql)
+            return [ColumnInfo(table_name = row[0], 
+                               column_name = row[1], 
+                               data_type = row[2],
+                               is_nullable = row[3] == 'YES'
+                               ) for row in rows]
         
     # Retrieves foreign key relationships between tables (table -> table links)
     # Returns (from_table, from_column, to_table, to_column)
-    def fetch_foreign_keys(self):
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                """
+    def fetch_foreign_keys(self) -> list[ForeignKeyInfo]:
+            sql = """
                 SELECT
                     tc.table_name AS from_table,
                     kcu.column_name AS from_column,
@@ -51,6 +51,9 @@ class SchemaInspector:
                 WHERE tc.constraint_type = 'FOREIGN KEY'
                     AND tc.table_schema = 'public';
                 """
-            )
-            foreign_key_results = cursor.fetchall()
-            return foreign_key_results
+            rows = self.connector.execute_query(sql)
+            return [ForeignKeyInfo(from_table = row[0], 
+                                   from_column = row[1], 
+                                   to_table = row[2], 
+                                   to_column = row[3]
+                                   ) for row in rows]
