@@ -16,6 +16,8 @@ class UIWindow(QMainWindow):
         self.setCentralWidget(self.view)
         if self.load_schema():
             self.render_schema()
+        else:
+            self.deleteLater()
 
     def load_schema(self):
         while True:
@@ -23,7 +25,6 @@ class UIWindow(QMainWindow):
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 credentials = dialog.get_credentials()
             else:
-                self.close()
                 return False
 
             connector = PostgresConnector(
