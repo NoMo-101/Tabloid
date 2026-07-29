@@ -28,13 +28,14 @@ class UIWindow(QMainWindow):
                 return False 
 
             try:
-                tables, foreign_keys, positions, graph, connection_id = controller.connect_and_load_schema(credentials)
+                tables, foreign_keys, columns, positions, graph, connection_id = controller.connect_and_load_schema(credentials)
             except ConnectionError as error:
                 QMessageBox.critical(self, "Connection Failed", f"Could not connect to the database.\n\n{error}")
                 continue
 
             self.tables = tables
             self.foreign_keys = foreign_keys
+            self.columns = columns
             self.positions = positions
             self.graph = graph
             self.connection_id = connection_id

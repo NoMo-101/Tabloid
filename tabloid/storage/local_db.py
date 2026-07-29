@@ -1,6 +1,8 @@
+import os
 import sqlite3
 
 def get_connection():
+    os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect("data/tabloid.db")
     conn.row_factory = sqlite3.Row
     return conn

@@ -12,6 +12,7 @@ class Controller:
     def __init__(self):
         pass
 
+    """
     def connect_and_load_schema(self, credentials):
         connector = PostgresConnector( 
             credentials["host"],      
@@ -41,8 +42,48 @@ class Controller:
         self.connection_id = connection_id
 
         return tables, foreign_keys, positions, graph, connection_id
+    """
+    
+    def connect_and_load_schema(self, credentials):
+        connector = PostgresConnector(
+            credentials["host"],
+            credentials["port"],
+            credentials["user"],
+            credentials["password"],
+            credentials["dbname"]
+        )
+        if not connector.connect():
+            raise ConnectionError("Could not connect to database. Check your credentials.")
 
+        self.connector = connector # on branch needs this
 
+        tables, foreign_keys, columns, positions, graph = self._fetch_and_layout()
+
+        connection_id = save_connection(
+                    credentials["dbname"], #placeholder for now the real input is 'name' refer to save_connection found in tabloid/storage/local_db.py
+                    credentials["host"], 
+                    credentials["port"], 
+                    credentials["user"], 
+                    credentials["dbname"]
+                )
+        self.connection_id = connection_id
+
+        return tables, foreign_keys, columns, positions, graph, connection_id
+
+    def fetch_schema_snapshot(self): # this snapshot method is for calling in the UI
+        if not getattr(self, "connector", None):
+            raise RuntimeError("No active connection.")
+        return self._fetch_and_layout() # returns everything in _fetch_and_layout() when active
+
+    def _fetch_and_layout(self): # separates connection and fetch from connect_and_load_schema() + columns
+        inspector = PostgresSchemaInspector(self.connector)
+        tables = inspector.fetch_tables()
+        foreign_keys = inspector.fetch_foreign_keys()
+        columns = inspector.fetch_columns()
+        layout = LayoutEngine(tables, foreign_keys)
+        positions = layout.compute_layout()
+        graph = layout.build_graph()
+        return tables, foreign_keys, columns, positions, graph
 
     def start_git_watcher(self, repo_path):
         self.git_watcher = GitWatcher(repo_path, self.on_branch_change)
