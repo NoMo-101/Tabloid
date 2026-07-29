@@ -1,7 +1,5 @@
 from PyQt6.QtWidgets import QMainWindow, QGraphicsScene, QDialog, QMessageBox
-from tabloid.db.postgres_connector import PostgresConnector
-from tabloid.db.postgres_inspector import PostgresSchemaInspector
-from tabloid.engine.layout import LayoutEngine
+from tabloid.engine.controller import Controller
 from tabloid.ui.canvas import BlastRadius, SchemaCanvas
 from tabloid.ui.connection_dialog import ConnectionDialog
 from PyQt6.QtGui import QBrush, QColor
@@ -20,68 +18,58 @@ class UIWindow(QMainWindow):
             self.deleteLater()
 
     def load_schema(self):
+        controller = Controller()
+
         while True:
             dialog = ConnectionDialog()
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 credentials = dialog.get_credentials()
             else:
-                return False
+                return False 
 
-            connector = PostgresConnector(
-                credentials["host"],
-                credentials["port"],
-                credentials["user"],
-                credentials["password"],
-                credentials["dbname"]
-            )
-
-            if not connector.connect():
-                QMessageBox.critical(self, "Connection Failed", "Could not connect to database. Check your credentials.")
+            try:
+                tables, foreign_keys, positions, graph, connection_id = controller.connect_and_load_schema(credentials)
+            except ConnectionError as error:
+                QMessageBox.critical(self, "Connection Failed", f"Could not connect to the database.\n\n{error}")
                 continue
 
+            self.tables = tables
+            self.foreign_keys = foreign_keys
+            self.positions = positions
+            self.graph = graph
+            self.connection_id = connection_id
+
             break
-
-        inspector = PostgresSchemaInspector(connector)
-
-        tables = inspector.fetch_tables()
-        foreign_keys = inspector.fetch_foreign_keys()
-        layout = LayoutEngine(tables, foreign_keys)
-        positions = layout.compute_layout()
-
-        self.tables = tables
-        self.foreign_keys = foreign_keys
-        self.positions = positions
-        self.graph = layout.build_graph()
-
+            
         return True
 
     def render_schema(self):
-        all_nodes = []
+        all_nodes = [] 
         node_map = {}
 
-        for table_name, pos in self.positions.items():
-            x = float(pos[0]) * 200 + 500
-            y = float(pos[1]) * 200 + 400
-            neighbors = list(self.graph.neighbors(table_name))
-            node = BlastRadius(table_name, neighbors, all_nodes)
-            node.setRect(x, y, 160, 60)
-            self.scene.addItem(node)
+        for table_name, pos in self.positions.items():              
+            x = float(pos[0]) * 200 + 500                           
+            y = float(pos[1]) * 200 + 400                           
+            neighbors = list(self.graph.neighbors(table_name))      
+            node = BlastRadius(table_name, neighbors, all_nodes)    #Qt-dependent
+            node.setRect(x, y, 160, 60)                             #Qt-dependent
+            self.scene.addItem(node)                                #Qt-dependent
             all_nodes.append(node)
             node_map[table_name] = node
-            text = self.scene.addText(table_name)
-            if text:
-                text.setPos(x, y)
+            text = self.scene.addText(table_name)                   #Qt-dependent
+            if text:                                                #Qt-dependent
+                text.setPos(x, y)                                   #Qt-dependent
 
-        for fk in self.foreign_keys:
-            from_pos = self.positions[fk.from_table]
-            to_pos = self.positions[fk.to_table]
-            x1 = float(from_pos[0]) * 200 + 500
-            y1 = float(from_pos[1]) * 200 + 400
-            x2 = float(to_pos[0]) * 200 + 500
-            y2 = float(to_pos[1]) * 200 + 400
-            self.scene.addLine(x1, y1, x2, y2)
+        for fk in self.foreign_keys:                                
+            from_pos = self.positions[fk.from_table]                
+            to_pos = self.positions[fk.to_table]                    
+            x1 = float(from_pos[0]) * 200 + 500                    
+            y1 = float(from_pos[1]) * 200 + 400                     
+            x2 = float(to_pos[0]) * 200 + 500                       
+            y2 = float(to_pos[1]) * 200 + 400                       
+            self.scene.addLine(x1, y1, x2, y2)                      #Qt-dependent
 
     def reset_colors(self):
-        for item in self.scene.items():
+        for item in self.scene.items():                             #Qt-dependent
             if isinstance(item, BlastRadius):
-                item.setBrush(QBrush(QColor("white")))
+                item.setBrush(QBrush(QColor("white")))              #Qt-dependent
