@@ -45,6 +45,8 @@ class UIWindow(QMainWindow):
             self.graph = graph
             self.connection_id = connection_id
 
+            self.controller.start_git_watcher(credentials["repo_path"], self.show_diff_popup) # eventually make a new column on connections table or a new table in local_db.py for repo picker menu
+
             break
             
         return True
@@ -103,3 +105,7 @@ class UIWindow(QMainWindow):
         for item in self.scene.items():                             #Qt-dependent
             if isinstance(item, TableNode):
                 item.setBrush(QBrush(QColor("white")))              #Qt-dependent
+
+    def show_diff_popup(self, diff):
+        message = f"Added: {diff['added_tables']}, Removed: {diff['removed_tables']}"
+        QMessageBox.information(self, "Schema Diff", message)

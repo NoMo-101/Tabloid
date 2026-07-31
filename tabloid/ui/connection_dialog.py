@@ -5,6 +5,8 @@ class ConnectionDialog(QDialog):
         super().__init__()
         self.setWindowTitle("Connect to Database")
         self.resize(300, 200)
+        self.repo_path_input = QLineEdit()
+        self.name_input = QLineEdit()
         self.host_input = QLineEdit("localhost")
         self.port_input = QLineEdit("5432")
         self.user_input = QLineEdit()
@@ -13,6 +15,8 @@ class ConnectionDialog(QDialog):
         self.dbname_input = QLineEdit()
 
         form = QFormLayout()
+        form.addRow("Repo Path: ", self.repo_path_input)
+        form.addRow("Name: ", self.name_input)
         form.addRow("Host: ", self.host_input)
         form.addRow("Port: ", self.port_input)
         form.addRow("User: ", self.user_input)
@@ -29,6 +33,8 @@ class ConnectionDialog(QDialog):
 
     def get_credentials(self):
         return {
+            "repo_path": self.repo_path_input.text(),
+            "name": self.name_input.text(),
             "host": self.host_input.text(),
             "port": int(self.port_input.text()) if self.port_input.text().strip() else 5432,
             "user": self.user_input.text(),

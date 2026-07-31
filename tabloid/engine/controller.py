@@ -60,7 +60,7 @@ class Controller:
         tables, foreign_keys, columns, positions, graph = self._fetch_and_layout()
 
         connection_id = save_connection(
-                    credentials["dbname"], #placeholder for now the real input is 'name' refer to save_connection found in tabloid/storage/local_db.py
+                    credentials["name"], 
                     credentials["host"], 
                     credentials["port"], 
                     credentials["user"], 
@@ -85,14 +85,15 @@ class Controller:
         graph = layout.build_graph()
         return tables, foreign_keys, columns, positions, graph
 
-    def start_git_watcher(self, repo_path):
+    def start_git_watcher(self, repo_path, on_diff_detected):
+        self.on_diff_deceted = on_diff_detected
         self.git_watcher = GitWatcher(repo_path, self.on_branch_change)
         self.git_watcher.start()
 
     def on_branch_change(self, old_branch, new_branch):
         previous_snapshot = get_latest_snapshot(self.connection_id, old_branch)
 
-        inspector = PostgresConnector(self.connector)
+        inspector = PostgresSchemaInspector(self.connector)
         tables = inspector.fetch_tables()
         foreign_keys = inspector.fetch_foreign_keys()
         live_schema = json.dumps({
@@ -104,6 +105,12 @@ class Controller:
 
         if previous_snapshot is not None:
             diff = diff_schemas(previous_snapshot["schema_json"], live_schema)
-            return diff
+            if self.on_diff_deceted:
+                self.on_diff_deceted(diff)
+
+        # if previous_snapshot is not None:
+        #     diff = diff_schemas(previous_snapshot["schema_json"], live_schema)
+        #     print(f"Schema diff: {diff}") #temporary, just to see it working
+        #     return diff
 
         return None
