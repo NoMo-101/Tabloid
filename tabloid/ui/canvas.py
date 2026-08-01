@@ -7,6 +7,10 @@ from PyQt6.QtWidgets import (
     QGraphicsTextItem,
     QGraphicsSceneMouseEvent,
     QGraphicsView,
+    QGraphicsProxyWidget,
+    QGraphicsItem,
+    QListWidget,
+    QListWidgetItem
 )
 
 
@@ -15,6 +19,9 @@ class TableNode(QGraphicsRectItem):
     ROW_HEIGHT = 20
     WIDTH = 220
 
+    MAX_VISIBLE_ROWS = 7 # the cap before it starts scrolling
+    MAX_EXPANDED_HEIGHT = COLLAPSED_HEIGHT + (MAX_VISIBLE_ROWS * ROW_HEIGHT)
+
     def __init__(self, table_name, columns, neighbors, all_nodes):
         super().__init__()
 
@@ -22,17 +29,33 @@ class TableNode(QGraphicsRectItem):
         self.columns = columns
         self.neighbors = neighbors
         self.all_nodes = all_nodes
-
         self.expanded = False
 
         self.setBrush(QBrush(QColor("white")))
         self.setPen(QPen(Qt.GlobalColor.black))
-
         self.setRect(0, 0, self.WIDTH, self.COLLAPSED_HEIGHT)
+
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable) # makes dragable/moveable
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable) # makes selectable
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
 
         # Table title
         self.title = QGraphicsTextItem(table_name, self)
         self.title.setPos(8, 5)
+
+        # column list, also make it scrollable...when needed obviously
+        self.column_list = QListWidget()
+        self.column_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.column_list.setStyleSheet("font-size: 11px;")
+        for column in self.columns:
+            nullable = "YES" if column.is_nullable else "NO"
+            text = f"{column.column_name} | {column.data_type} | {nullable}"
+            self.column_list.addItem(QListWidgetItem(text))
+
+        self.column_proxy = QGraphicsProxyWidget(self)
+        self.column_proxy.setWidget(self.column_list)
+        self.column_proxy.setPos(4, self.COLLAPSED_HEIGHT)
+        self.column_proxy.hide()
 
         # Column information
         self.column_text = QGraphicsTextItem(self)
@@ -71,16 +94,20 @@ class TableNode(QGraphicsRectItem):
         self.toggle_expand()
         super().mouseDoubleClickEvent(event)
 
-    def toggle_expand(self): # toggles the actual expansion
+    def toggle_expand(self):
         self.expanded = not self.expanded
 
         if self.expanded:
-            self.column_text.show()
-            height = (self.COLLAPSED_HEIGHT + len(self.columns) * self.ROW_HEIGHT)
-            self.setRect(0, 0, self.WIDTH, height)
+            content_height = len(self.columns) * self.ROW_HEIGHT
+            visible_height = min(content_height, self.MAX_VISIBLE_ROWS * self.ROW_HEIGHT)
+            total_height = self.COLLAPSED_HEIGHT + visible_height
+
+            self.column_list.setFixedSize(self.WIDTH - 8, visible_height)
+            self.setRect(0, 0, self.WIDTH, total_height)
+            self.column_proxy.show()
             self.setZValue(10)
         else:
-            self.column_text.hide()
+            self.column_proxy.hide()
             self.setRect(0, 0, self.WIDTH, self.COLLAPSED_HEIGHT)
             self.setZValue(0)
 
