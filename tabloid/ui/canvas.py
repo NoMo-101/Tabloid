@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (
     QGraphicsProxyWidget,
     QGraphicsItem,
     QListWidget,
-    QListWidgetItem
+    QListWidgetItem,
+    QGraphicsLineItem
 )
 
 
@@ -24,6 +25,8 @@ class TableNode(QGraphicsRectItem):
 
     def __init__(self, table_name, columns, neighbors, all_nodes):
         super().__init__()
+
+        self.edges = [] # edges atteched to the node
 
         self.table_name = table_name
         self.columns = columns
@@ -63,6 +66,12 @@ class TableNode(QGraphicsRectItem):
         self.column_text.hide()
 
         self.update_column_text()  # Update the column text when the node is created
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            for edge in self.edges:
+                edge.update_position() # notifies whenever it an edge is moved
+        return super().itemChange(change, value)
 
     def update_column_text(self):
         lines = []
@@ -121,3 +130,17 @@ class SchemaCanvas(QGraphicsView):
         if item is None:
             self.reset_callback()
         super().mousePressEvent(event)
+
+class Edge(QGraphicsLineItem): # edge class that draws line from one node to another
+    def __init__(self, from_node, to_node):
+        super().__init__()
+        self.from_node = from_node
+        self.to_node = to_node
+        self.setPen(QPen(Qt.GlobalColor.black))
+        self.setZValue(-1) # this draws behind the nodes
+        self.update_position()
+
+    def update_position(self):
+        from_center = self.from_node.sceneBoundingRect().center()
+        to_center = self.to_node.sceneBoundingRect().center()
+        self.setLine(from_center.x(), from_center.y(), to_center.x(), to_center.y())

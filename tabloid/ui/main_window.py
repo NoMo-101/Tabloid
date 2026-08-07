@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QMainWindow, QGraphicsScene, QDialog, QMessageBox
 from tabloid.engine.controller import Controller
-from tabloid.ui.canvas import TableNode, SchemaCanvas
+from tabloid.ui.canvas import Edge, TableNode, SchemaCanvas
 from tabloid.ui.connection_dialog import ConnectionDialog
 from PyQt6.QtGui import QAction, QBrush, QColor
 
@@ -62,25 +62,26 @@ class UIWindow(QMainWindow):
         for column in self.columns:
             columns_by_table.setdefault(column.table_name, []).append(column)
 
-        for table_name, pos in self.positions.items():              
-            x = float(pos[0]) * 200 + 500                           
-            y = float(pos[1]) * 200 + 400                           
-            neighbors = list(self.graph.neighbors(table_name))      
-            node = TableNode(table_name, columns_by_table.get(table_name, []), neighbors, all_nodes)    #Qt-dependent
-            node.setPos(x, y)                                      #Qt-dependent
-            self.scene.addItem(node)                                #Qt-dependent
+        # tweaked for loop for positions
+        for table_name, pos in self.positions.items():
+            x = float(pos[0]) * 260 + 500
+            y = float(pos[1]) * 220 + 400
+            neighbors = list(self.graph.neighbors(table_name))
+            table_columns = [c for c in self.columns if c.table_name == table_name]
+            node = TableNode(table_name, table_columns, neighbors, all_nodes)
+            node.setPos(x, y)
+            self.scene.addItem(node)
             all_nodes.append(node)
             node_map[table_name] = node
 
-        for fk in self.foreign_keys:                                
-            from_pos = self.positions[fk.from_table]                
-            to_pos = self.positions[fk.to_table]                    
-            x1 = float(from_pos[0]) * 200 + 500                    
-            y1 = float(from_pos[1]) * 200 + 400                     
-            x2 = float(to_pos[0]) * 200 + 500                       
-            y2 = float(to_pos[1]) * 200 + 400                       
-            line = self.scene.addLine(x1, y1, x2, y2)
-            line.setZValue(-1)                                          #Qt-dependent
+        # this is for the edges instead of positions
+        for fk in self.foreign_keys:
+            from_node = node_map[fk.from_table]
+            to_node = node_map[fk.to_table]
+            edge = Edge(from_node, to_node)
+            self.scene.addItem(edge)
+            from_node.edges.append(edge)
+            to_node.edges.append(edge)                                          #Qt-dependent
 
     def refresh_schema(self):
         try:
