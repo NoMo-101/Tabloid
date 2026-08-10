@@ -128,7 +128,6 @@ class TableNode(QGraphicsRectItem):
     def toggle_expand(self):
         self.expanded = not self.expanded
 
-
         if self.expanded:
             content_height = len(self.columns) * self.ROW_HEIGHT
             visible_height = min(content_height, self.MAX_VISIBLE_ROWS * self.ROW_HEIGHT)
@@ -143,6 +142,9 @@ class TableNode(QGraphicsRectItem):
             self.column_proxy.hide()
             self.setRect(0, 0, self.WIDTH, self.COLLAPSED_HEIGHT)
             self.setZValue(0)
+
+        for edge in self.edges:
+            edge.update_position() # same call from itemChange, notifies whenever it an edge is moved
 
 
 class SchemaCanvas(QGraphicsView):
