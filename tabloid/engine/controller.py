@@ -53,7 +53,8 @@ class Controller:
             credentials["dbname"]
         )
         if not connector.connect():
-            raise ConnectionError("Could not connect to database. Check your credentials.")
+            detail = getattr(connector, "last_error", "Unknown error")
+            raise ConnectionError("Could not connect to database. \n\n{detail}")
 
         self.connector = connector # on branch needs this
 
@@ -76,6 +77,20 @@ class Controller:
         return self._fetch_and_layout() # returns everything in _fetch_and_layout() when active
 
     def _fetch_and_layout(self): # separates connection and fetch from connect_and_load_schema() + columns
+
+        # check if the 'public' schema exists before fetching, adds to hardening
+        try:
+            inspector = PostgresSchemaInspector(self.connector)
+            if not inspector.schema_exists("public"):
+                raise ConnectionError("The 'public' schema does not exist in the connected database.")
+            tables = inspector.fetch_tables()
+            foreign_keys = inspector.fetch_foreign_keys()
+            columns = inspector.fetch_columns()
+        except ConnectionError:
+            raise
+        except Exception as error:
+            raise ConnectionError(f"Lost connection to database: {error}") from error
+        
         inspector = PostgresSchemaInspector(self.connector)
         tables = inspector.fetch_tables()
         foreign_keys = inspector.fetch_foreign_keys()
@@ -86,9 +101,12 @@ class Controller:
         return tables, foreign_keys, columns, positions, graph
 
     def start_git_watcher(self, repo_path, on_diff_detected):
-        self.on_diff_deceted = on_diff_detected
-        self.git_watcher = GitWatcher(repo_path, self.on_branch_change)
-        self.git_watcher.start()
+        self.on_diff_detected = on_diff_detected
+        try:
+            self.git_watcher = GitWatcher(repo_path, self.on_branch_change)
+            self.git_watcher.start()
+        except ValueError as error:
+            raise ValueError(f"Failed to start Git watcher: {error}") from error
 
     def on_branch_change(self, old_branch, new_branch):
         previous_snapshot = get_latest_snapshot(self.connection_id, old_branch)
@@ -105,8 +123,8 @@ class Controller:
 
         if previous_snapshot is not None:
             diff = diff_schemas(previous_snapshot["schema_json"], live_schema)
-            if self.on_diff_deceted:
-                self.on_diff_deceted(diff)
+            if self.on_diff_detected:
+                self.on_diff_detected({"error": f"Could not fetch schema on branch change: {diff}"})
 
         # if previous_snapshot is not None:
         #     diff = diff_schemas(previous_snapshot["schema_json"], live_schema)

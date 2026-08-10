@@ -1,10 +1,15 @@
+import os
+
 from PyQt6.QtWidgets import QMainWindow, QGraphicsScene, QDialog, QMessageBox
 from tabloid.engine.controller import Controller
 from tabloid.ui.canvas import Edge, TableNode, SchemaCanvas
 from tabloid.ui.connection_dialog import ConnectionDialog
 from tabloid.engine.layout import LayoutEngine
 from PyQt6.QtGui import QAction, QBrush, QColor
+from PyQt6.QtCore import QObject, pyqtSignal
 
+class DiffSignalEmitter(QObject):
+    diff_ready = pyqtSignal(dict)
 
 class UIWindow(QMainWindow):
     def __init__(self):
@@ -14,6 +19,10 @@ class UIWindow(QMainWindow):
         self.scene = QGraphicsScene()
         self.view = SchemaCanvas(self.scene, self.reset_colors)
         self.setCentralWidget(self.view)
+
+        # signal bridge for background-thread -> main-thread handoff
+        self.diff_emitter = DiffSignalEmitter()
+        self.diff_emitter.diff_ready.connect(self.show_diff_popup)
 
         refresh_action = QAction("Refresh Schema", self)
         refresh_action.triggered.connect(self.refresh_schema)
@@ -48,7 +57,17 @@ class UIWindow(QMainWindow):
             self.graph = graph
             self.connection_id = connection_id
 
-            self.controller.start_git_watcher(credentials["repo_path"], self.show_diff_popup) # eventually make a new column on connections table or a new table in local_db.py for repo picker menu
+            if credentials["repo_path"]:
+                if os.path.isdir(credentials["repo_path"]):
+                    try:
+                        self.controller.start_git_watcher(credentials["repo_path"], self.diff_emitter.diff_ready.emit) # eventually make a new column on connections table or a new table in local_db.py for repo picker menu
+                    except ValueError as error:
+                        QMessageBox.warning(self, "Git Watcher Failed", str(error))
+                else:
+                    QMessageBox.warning(
+                        self, "Invalid Repo Path",
+                        f"'{credentials['repo_path']}' is not a valid directory. Skipping git watcher."
+                    )
 
             break
            
@@ -121,7 +140,9 @@ class UIWindow(QMainWindow):
                 item.setBrush(QBrush(QColor("white")))              #Qt-dependent
 
 
-    def show_diff_popup(self, diff):
-        message = f"Added: {diff['added_tables']}, Removed: {diff['removed_tables']}"
-        QMessageBox.information(self, "Schema Diff", message)
+    def show_diff_popup(self, diff: dict):
+        if "error" in diff:
+            QMessageBox.warning(self, "Git Watcher Error", diff["error"])
+            return
+        QMessageBox.information(self, "Schema Changed", f"Detected schema changes:\n\n{diff}")
 

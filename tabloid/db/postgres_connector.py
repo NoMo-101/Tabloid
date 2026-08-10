@@ -25,11 +25,14 @@ class PostgresConnector(DBConnectorInterface):
                 port = self.port,
                 user = self.user,
                 password = self.password,
-                dbname = self.dbname
+                dbname = self.dbname,
+                connect_timeout = 5 # quick fail if the database is unreachable
                 )
             return True
         except psycopg.OperationalError as error:
             logger.exception(f"Connection error: {error}")
+            self.last_error = str(error)
+            self.connection = None
             return False
     
     # Closes the connection if one is open
@@ -41,7 +44,16 @@ class PostgresConnector(DBConnectorInterface):
     @property
     def is_connected(self) -> bool:
         """Returns True if the connection exists and is alive."""
-        return self.connection is not None and not self.connection.closed
+        # return self.connection is not None and not self.connection.closed
+        if self.connection is None or self.connection.closed:
+            return False
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            return True
+        except psycopg.Error:
+            self.connection = None
+            return False
 
     def execute_query(self, sql, params=None) -> list[tuple]:
             if not self.is_connected:
@@ -50,6 +62,10 @@ class PostgresConnector(DBConnectorInterface):
                 with self.connection.cursor() as cursor:
                     cursor.execute(sql, params)
                     return cursor.fetchall()
+            except psycopg.Error as error:
+                logger.exception(f"Query execution failed: {error}")
+                self.connection = None
+                raise ConnectionError(f"Lost connection to database: {error}") from error
             except psycopg.Error as error:
                 logger.exception(f"Query execution failed: {error}")
                 raise
