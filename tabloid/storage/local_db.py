@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from tabloid.db.credentials import save_password, get_password
 
 def get_connection():
     os.makedirs("data", exist_ok=True)
@@ -74,7 +75,7 @@ def load_layout(connection_id):
 
         return results
     
-def save_connection(name, host, port, user, dbname):
+def save_connection(name, host, port, user, password, dbname):
     with get_connection() as conn:
         conn.execute(
             """
@@ -92,7 +93,22 @@ def save_connection(name, host, port, user, dbname):
             (name, host, port, dbname)
         )
         row = cursor.fetchone()
+        connection_id = row[0]
+        if password is not None:
+            save_password(str(connection_id), password)
         return row[0]
+
+def load_connection(connection_id):
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT name, host, port, user, dbname FROM connections WHERE id = ?
+            """,
+            (connection_id,)
+        )
+        load = cursor.fetchone()
+        fetched_password = get_password(str(connection_id))
+        return {"connection": load, "password": fetched_password}
 
 # Delete/ Remove this later as this is in tabloid-core
 def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, captured_at, keep_last=200):

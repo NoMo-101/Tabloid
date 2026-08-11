@@ -1,4 +1,6 @@
-from PyQt6.QtWidgets import QDialog, QLineEdit, QFormLayout, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QLineEdit, QFormLayout, QPushButton, QVBoxLayout, QFileDialog, QMessageBox
+from tabloid.git.validator import load_repo
+from git.exc import InvalidGitRepositoryError
 
 class ConnectionDialog(QDialog):
     def __init__(self):
@@ -24,11 +26,14 @@ class ConnectionDialog(QDialog):
         form.addRow("Database: ", self.dbname_input)
 
         self.connect_button = QPushButton("Connect")
+        self.browse_button = QPushButton("Browse")
         self.connect_button.clicked.connect(self.accept)
+        self.browse_button.clicked.connect(self.browse_for_repo)
 
         layout = QVBoxLayout()
         layout.addLayout(form)
         layout.addWidget(self.connect_button)
+        layout.addWidget(self.browse_button)
         self.setLayout(layout)
 
     def get_credentials(self):
@@ -41,3 +46,12 @@ class ConnectionDialog(QDialog):
             "password": self.password_input.text(),
             "dbname": self.dbname_input.text()
         }
+
+    def browse_for_repo(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Repository Folder")
+        if path != "":
+            try:
+                load_repo(path)
+                self.repo_path_input.setText(path)
+            except InvalidGitRepositoryError as error:
+                QMessageBox.critical(self, "Connection Failed", f"Could not connect to the database.\n\n{error}")
