@@ -24,7 +24,6 @@ class UIWindow(QMainWindow):
         else:
             self.deleteLater()
 
-
     def load_schema(self):
         self.controller = Controller() # added self to store for later use
         
