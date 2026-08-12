@@ -54,7 +54,7 @@ class Controller:
         )
         if not connector.connect():
             detail = getattr(connector, "last_error", "Unknown error")
-            raise ConnectionError("Could not connect to database. \n\n{detail}")
+            raise ConnectionError(f"Could not connect to database. \n\n{detail}")
 
         self.connector = connector # on branch needs this
 
