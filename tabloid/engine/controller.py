@@ -65,7 +65,8 @@ class Controller:
                     credentials["port"], 
                     credentials["user"],
                     credentials["password"], 
-                    credentials["dbname"]
+                    credentials["dbname"],
+                    credentials["repo_path"]
                 )
         self.connection_id = connection_id
 

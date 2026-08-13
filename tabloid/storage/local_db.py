@@ -51,6 +51,16 @@ def init_db():
             );
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS repo_connections (
+                repo_path TEXT,
+                connection_id INTEGER,
+                FOREIGN KEY (connection_id) REFERENCES connections(id),
+                UNIQUE(repo_path, connection_id)
+            );
+            """
+        )
 
 def save_layout(connection_id, table_name, x, y):
     with get_connection() as conn:
@@ -75,7 +85,7 @@ def load_layout(connection_id):
 
         return results
     
-def save_connection(name, host, port, user, password, dbname):
+def save_connection(name, host, port, user, password, dbname, repo_path):
     with get_connection() as conn:
         conn.execute(
             """
@@ -94,9 +104,17 @@ def save_connection(name, host, port, user, password, dbname):
         )
         row = cursor.fetchone()
         connection_id = row[0]
+        conn.execute(
+            """
+            INSERT INTO repo_connections (repo_path, connection_id)
+            VALUES (?, ?)
+            ON CONFLICT (repo_path, connection_id) DO NOTHING
+            """,
+            (repo_path, connection_id)
+        )
         if password is not None:
             save_password(str(connection_id), password)
-        return row[0]
+        return connection_id
 
 def load_connection(connection_id):
     with get_connection() as conn:
@@ -109,6 +127,30 @@ def load_connection(connection_id):
         load = cursor.fetchone()
         fetched_password = get_password(str(connection_id))
         return {"connection": load, "password": fetched_password}
+
+# This function may be used for future use case (made it then got bitten by the scope creep bug)
+def get_all_connections():
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT * FROM connections
+            """
+        )
+        list_of_all_connections = cursor.fetchall()
+        return list_of_all_connections
+
+def get_connections_for_repo(repo_path):
+    with get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT repo_connections.repo_path, connections.id, connections.name, connections.host, connections.port, connections.user, connections.dbname
+                FROM repo_connections
+                JOIN connections ON repo_connections.connection_id = connections.id
+                WHERE repo_connections.repo_path = ? 
+                """,
+                (repo_path,)
+            )
+            return cursor.fetchall()
 
 # Delete/ Remove this later as this is in tabloid-core
 def save_snapshot(connection_id, branch_name, git_commit_hash, schema_json, captured_at, keep_last=200):
