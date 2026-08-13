@@ -24,10 +24,9 @@ class UIWindow(QMainWindow):
         else:
             self.deleteLater()
 
-
     def load_schema(self):
         self.controller = Controller() # added self to store for later use
-
+        
         while True:
             dialog = ConnectionDialog()
             if dialog.exec() == QDialog.DialogCode.Accepted:
