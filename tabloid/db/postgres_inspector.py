@@ -57,3 +57,8 @@ class PostgresSchemaInspector(SchemaInspectorInterface):
                                    to_table = row[2], 
                                    to_column = row[3]
                                    ) for row in rows]
+
+    def schema_exists(self, schema_name="public") -> bool:
+        sql = "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s"
+        rows = self.connector.execute_query(sql, (schema_name,))
+        return len(rows) > 0
