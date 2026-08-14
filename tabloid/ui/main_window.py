@@ -9,33 +9,52 @@ from PyQt6.QtGui import QAction, QBrush, QColor
 from PyQt6.QtCore import QObject, pyqtSignal
 
 class DiffSignalEmitter(QObject):
+    """Signal bridge to safely hand off Git watcher events from background threads to the main Qt GUI thread."""
+
     diff_ready = pyqtSignal(dict)
 
+
 class UIWindow(QMainWindow):
+    """Main application window for Tabloid.
+
+    Manages database connection workflows, schema canvas rendering, menu bar
+    actions, and background file system/Git event listeners.
+    """
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Tabloid")
         self.resize(1200, 800)
+
+        # Initialize interactive graphics canvas
         self.scene = QGraphicsScene()
         self.view = SchemaCanvas(self.scene, self.reset_colors)
         self.setCentralWidget(self.view)
 
-        # signal bridge for background-thread -> main-thread handoff
+        # Thread-safe signal bridge for background Git watcher notifications
         self.diff_emitter = DiffSignalEmitter()
         self.diff_emitter.diff_ready.connect(self.show_diff_popup)
 
+        # Global action menu for re-fetching schema metadata
         refresh_action = QAction("Refresh Schema", self)
         refresh_action.triggered.connect(self.refresh_schema)
         self.menuBar().addAction(refresh_action) # not clean but it adds "Refresh Schema" button to top of Tabloid UI - for fetching
 
+        # Prompt for credentials; schedule object destruction if connection is cancelled
         if self.load_schema():
             self.render_schema()
         else:
             self.deleteLater()
 
     def load_schema(self):
+        """Displays connection modal, authenticates database, and initializes repository watching.
+
+        Returns:
+            bool: True if connection succeeded and schema was loaded; False if user cancelled.
+        """
         self.controller = Controller() # added self to store for later use
-        
+
+        # Re-prompt on connection failure until successful or user cancels modal
         while True:
             dialog = ConnectionDialog()
             if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -49,6 +68,7 @@ class UIWindow(QMainWindow):
                 QMessageBox.critical(self, "Connection Failed", f"Could not connect to the database.\n\n{error}")
                 continue
 
+            # Store schema metadata for layout calculations and canvas rendering
             self.tables = tables
             self.foreign_keys = foreign_keys
             self.columns = columns
@@ -56,6 +76,7 @@ class UIWindow(QMainWindow):
             self.graph = graph
             self.connection_id = connection_id
 
+            # Initialize optional local repository watcher for schema migration tracking
             if credentials["repo_path"]:
                 if os.path.isdir(credentials["repo_path"]):
                     try:
@@ -74,7 +95,8 @@ class UIWindow(QMainWindow):
 
 
     def render_schema(self):
-        self.scene.clear() # wipes old before redrawing
+        """Calculates visual layout positioning and populates scene with nodes and edges."""
+        self.scene.clear() # Wipes old existing canvas items prior to redraw
 
         all_nodes = []
         node_map = {}
@@ -91,6 +113,7 @@ class UIWindow(QMainWindow):
         layout = LayoutEngine(self.tables, self.foreign_keys)
         self.positions = layout.space_nodes(self.positions, TableNode.WIDTH, TableNode.COLLAPSED_HEIGHT)
 
+        # Optimize column lookup mapping by table name
         columns_by_table = {}
         for column in self.columns:
             columns_by_table.setdefault(column.table_name, []).append(column)
@@ -107,7 +130,7 @@ class UIWindow(QMainWindow):
             all_nodes.append(node)
             node_map[table_name] = node
 
-        # this is for the edges instead of positions (tweak: from_node & to_node was moved into canvas into Edge class)
+       # Step 4: Draw relationship edges connecting table node pairs
         for fk in self.foreign_keys:
             from_node = node_map[fk.from_table]
             to_node = node_map[fk.to_table]
@@ -116,6 +139,7 @@ class UIWindow(QMainWindow):
 
 
     def refresh_schema(self):
+        """Fetches fresh schema metadata from active database connection and re-renders canvas."""
         try:
             tables, foreign_keys, columns, positions, graph = self.controller.fetch_schema_snapshot() # calls the fetch from controller
         except RuntimeError as error:
@@ -134,12 +158,14 @@ class UIWindow(QMainWindow):
 
        
     def reset_colors(self):
+        """Resets background fill of all TableNodes to default white (clears neighbor selection)."""
         for item in self.scene.items():                             #Qt-dependent
             if isinstance(item, TableNode):
                 item.setBrush(QBrush(QColor("white")))              #Qt-dependent
 
 
     def show_diff_popup(self, diff: dict):
+        """Displays dialog notification when Git watcher detects schema SQL file modifications."""
         if "error" in diff:
             QMessageBox.warning(self, "Git Watcher Error", diff["error"])
             return

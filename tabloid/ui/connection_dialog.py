@@ -4,6 +4,11 @@ from tabloid.storage.local_db import get_connections_for_repo, load_connection
 from git.exc import InvalidGitRepositoryError
 
 class ConnectionDialog(QDialog):
+    """Modal dialog for choosing a Git repository and entering database connection credentials.
+
+    Allows users to enter credentials manually or auto-fill them from saved connections
+    associated with the selected repository path.
+    """
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Connect to Database")
@@ -17,9 +22,11 @@ class ConnectionDialog(QDialog):
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.dbname_input = QLineEdit()
+
+        # Connect dropdown selection event to auto-fill input fields
         self.saved_connection_menu.currentTextChanged.connect(self.on_connection_selected)
         
-
+        # Dialog control signals
         form = QFormLayout()
         form.addRow("Repo Path: ", self.repo_path_input)
         form.addRow("Name: ", self.name_input)
@@ -42,6 +49,15 @@ class ConnectionDialog(QDialog):
         self.setLayout(layout)
 
     def get_credentials(self):
+        """Collects the current text from input fields into a dictionary.
+
+        Returns:
+            dict: Contains 'repo_path', 'name', 'host', 'port' (int),
+                  'user', 'password', and 'dbname'.
+
+        Note:
+            Defaults port to 5432 if the port field is left empty or whitespace.
+        """
         return {
             "repo_path": self.repo_path_input.text(),
             "name": self.name_input.text(),
@@ -53,6 +69,12 @@ class ConnectionDialog(QDialog):
         }
 
     def browse_for_repo(self):
+        """Opens a directory picker dialog for selecting a Git repository.
+
+        If a valid repository folder is chosen, populates the repo path field
+        and loads saved connections for that repository. Displays an error modal
+        if the selected directory is not a valid Git repository.
+        """
         path = QFileDialog.getExistingDirectory(self, "Select Repository Folder")
         if path != "":
             try:
@@ -63,6 +85,11 @@ class ConnectionDialog(QDialog):
                 QMessageBox.critical(self, "Connection Failed", f"Could not connect to the database.\n\n{error}")
 
     def populate_saved_connections(self, repo_path):
+        """Queries local storage for saved connections bound to repo_path and populates the dropdown.
+
+        Args:
+            repo_path (str): Filepath of the target Git repository.
+        """
         self.saved_connection_menu.clear()
         connections = get_connections_for_repo(repo_path)
         for connection in connections:
@@ -71,7 +98,17 @@ class ConnectionDialog(QDialog):
         
 
     def on_connection_selected(self):
+        """Event handler triggered when a user selects an entry from the saved connections dropdown.
+
+        Fetches full connection details and decrypted password from local storage and
+        fills the dialog's text fields.
+        """
         connection_id = self.saved_connection_menu.currentData()
+
+        # Guard against clear() triggering currentTextChanged on an empty menu
+        if connection_id is None:
+            return
+
         load = load_connection(connection_id)
         self.name_input.setText(load["connection"]["name"])
         self.host_input.setText(load["connection"]["host"])
