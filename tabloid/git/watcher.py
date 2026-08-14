@@ -7,32 +7,39 @@ import logging
 logger = logging.getLogger(__name__)
 
 class HeadFileHandler(FileSystemEventHandler):
+    """Watchdog event handler targeting changes to the `.git/HEAD` file."""
+
     def __init__(self, on_branch_change):
+        """Initializes handler with callback.
+
+        Args:
+            on_branch_change (Callable[[], None]): Callback triggered when HEAD is modified.
+        """
         self.on_branch_change = on_branch_change
 
     def on_modified(self, event):
         if str(event.src_path).endswith('HEAD'):
-            return self.on_branch_change()
+            self._safe_trigger()
 
     def on_created(self, event):
         if str(event.src_path).endswith('HEAD'):
-            self.on_branch_change()
+            self._safe_trigger()
 
     def on_moved(self, event):
         if str(event.dest_path).endswith('HEAD'):
-            self.on_branch_change()
+            self._safe_trigger()
 
     def _safe_trigger(self): # runs on watchdog's background thread
         try:
             self.on_branch_change()
         except Exception:
-            logger.error(f"Error handling HEAD change event")
+            logger.exception(f"Error handling HEAD change event")
 
 class GitWatcher:
     def __init__(self, repo_path, on_branch_change):
         self.repo_path = repo_path
         self.on_branch_change = on_branch_change
-        self.current_branch = self.get_current_branch()
+        self.observer = None
 
         git_dir = os.path.join(repo_path, ".git")
         if not os.path.isdir(repo_path):
@@ -45,19 +52,19 @@ class GitWatcher:
     def get_current_branch(self):
         try:
             repo = Repo(self.repo_path)
-        except NoSuchPathError:
-            return ValueError(f"Path does not exist: {self.repo_path}")
-        except InvalidGitRepositoryError:
-            return ValueError(f"Invalid Git repository: {self.repo_path}")
+        except NoSuchPathError as error:
+            raise ValueError(f"Path does not exist: {self.repo_path}") from error
+        except InvalidGitRepositoryError as error:
+            raise ValueError(f"Invalid Git repository: {self.repo_path}") from error
 
         try:
             return repo.active_branch.name
         except TypeError:
             try:
-                return f"DETEACHED@{repo.head.commit.hexsha[:7]}"
+                return f"DETACHED@{repo.head.commit.hexsha[:7]}"
             except Exception as error:
                 logger.exception("Could not resolve detached HEAD commit")
-                return "DEATCHED@unknown"
+                return "DETACHED@unknown"
 
     def handle_branch_change(self):
         try:

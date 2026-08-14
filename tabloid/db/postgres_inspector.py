@@ -3,6 +3,11 @@ from tabloid.db.interfaces import SchemaInspectorInterface
 from tabloid.db.models import TableInfo, ColumnInfo, ForeignKeyInfo
 
 class PostgresSchemaInspector(SchemaInspectorInterface):
+    """PostgreSQL implementation of SchemaInspectorInterface.
+
+    Queries PostgreSQL's `information_schema` system catalog tables to extract
+    tables, column definitions, and foreign key constraints.
+    """
     def __init__(self, connector: DBConnectorInterface):
         # Save the connection so we can run queries
         self.connector = connector
